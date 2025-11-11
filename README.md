@@ -1,9 +1,15 @@
 
 # LCSC-KiCad-Helper  
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-专为嵌入式工程师、电子系统开发者打造, 一键提取商品关键信息（品牌/型号/编号/参数），自动格式化为 KiCad 符号属性字段，告别手动录入，提升硬件设计效率！
+一个 Tampermonkey 油猴脚本, 专为嵌入式工程师、电子系统开发者打造, 一键提取商品关键信息（品牌/型号/编号/参数），自动格式化为 KiCad 符号属性字段，告别手动录入，提升硬件设计效率！
 
 ---
+
+## 安装方法
+
+1. 在浏览器中安装油猴插件
+2. 在油猴插件中添加新脚本，将`lcsc-kicad-helper.user.js`的内容全部复制进去并保存
+
 
 ## ✨ 特性
 
