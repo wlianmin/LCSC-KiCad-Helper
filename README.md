@@ -1,6 +1,6 @@
 
 # LCSC-KiCad-Helper  
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)  
 一个 Tampermonkey 油猴脚本, 专为嵌入式工程师、电子系统开发者打造, 一键提取商品关键信息（品牌/型号/编号/参数），自动格式化为 KiCad 符号属性字段，告别手动录入，提升硬件设计效率！
 
 ---
