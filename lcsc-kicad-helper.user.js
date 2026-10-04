@@ -12,25 +12,91 @@
 (function () {
     'use strict';
 
+    const DIAGNOSTIC_PREFIX = '[KiCad助手诊断]';
+    let diagnosticLogged = false;
+
+    function logDiagnostics(reason) {
+        if (diagnosticLogged) return;
+        const pdSection = document.querySelector('section[data-anchor-id="pd"]');
+        const csSection = document.querySelector('section[data-anchor-id="cs"]');
+        const legacyMain = pdSection?.querySelector('div.w-\\[460px\\]');
+        const headings = [...document.querySelectorAll('h1')]
+            .map(el => el.textContent.trim())
+            .filter(Boolean)
+            .slice(0, 3);
+        const bodyText = document.body?.innerText?.replace(/\\s+/g, ' ').trim() || '';
+        const isWafPage = /aliyun.?waf|安全验证|访问验证|challenge/i.test(
+            `${document.title} ${bodyText} ${document.documentElement.innerHTML.slice(0, 3000)}`
+        );
+        console.warn(DIAGNOSTIC_PREFIX, {
+            reason,
+            url: location.href,
+            readyState: document.readyState,
+            title: document.title,
+            pdSection: Boolean(pdSection),
+            csSection: Boolean(csSection),
+            legacyMain: Boolean(legacyMain),
+            h1: headings,
+            tables: document.querySelectorAll('table').length,
+            isWafPage,
+        });
+        diagnosticLogged = true;
+    }
+
     function extractAllInfo() {
         const info = {
             // 基础信息（主区域）
             brand: '', model: '', sku: '',
         };
 
-        const mainInfo = document.querySelector('section[data-anchor-id="pd"] > div.w-\\[460px\\]');
-        if (mainInfo) {
-            const dtList = mainInfo.querySelectorAll('dt');
-            dtList.forEach(dt => {
-                const label = dt.textContent.trim();
-                const dd = dt.nextElementSibling;
-                if (!dd) return;
-                const val = dd.querySelector('a')?.textContent.trim() || dd.textContent.trim();
-                switch (label) {
-                    case '品牌名称': info.brand = val; break;
-                    case '商品型号': info.model = val; break;
-                    case '商品编号': info.sku = val; break;
+        const roots = [
+            ...document.querySelectorAll('section, main, article, [class*="detail"], [class*="product"]'),
+            document.body,
+        ];
+        const labels = { '品牌名称': 'brand', '商品型号': 'model', '商品编号': 'sku' };
+        const getValue = labelElement => {
+            const candidates = [
+                labelElement.nextElementSibling,
+                labelElement.parentElement?.nextElementSibling,
+                labelElement.closest('tr, li, dt, dd, [class*="item"], [class*="row"]'),
+            ].filter(Boolean);
+            for (const candidate of candidates) {
+                const direct = candidate.querySelector?.('a, [class*="value"], [class*="content"]');
+                const value = cleanText(direct?.textContent || candidate.textContent);
+                const labelText = cleanText(labelElement.textContent);
+                if (value && value.includes(labelText)) {
+                    const stripped = cleanText(value.replace(labelText, ''))
+                        .replace(/^[：:]\s*/, '');
+                    if (stripped) return stripped;
+                } else if (candidate !== labelElement && value) {
+                    return value;
                 }
+            }
+            return '';
+        };
+        roots.some(root => {
+            const elements = root.querySelectorAll('dt, th, label, [class*="label"], [class*="name"]');
+            let found = false;
+            elements.forEach(labelElement => {
+                const label = cleanText(labelElement.textContent).replace(/[：:]/g, '');
+                const key = labels[label];
+                if (!key || info[key]) return;
+                const val = getValue(labelElement);
+                if (val) {
+                    info[key] = val;
+                    found = true;
+                }
+            });
+            return found && info.brand && info.model && info.sku;
+        });
+
+        // 新版页面可能将基础信息渲染成普通文本行，而不是 dt/dd。
+        if (!info.brand || !info.model || !info.sku) {
+            const text = document.body?.innerText || '';
+            Object.entries(labels).forEach(([label, key]) => {
+                if (info[key]) return;
+                const match = text.match(new RegExp(`${label}\\s*[：:]\\s*([^\\n]+)`));
+                if (match) info[key] = cleanText(match[1]);
             });
         }
 
@@ -44,15 +110,19 @@
 
     function extractAllParams() {
         const params = [];
-        // 查找所有参数表格（支持分栏）
-        const tables = document.querySelectorAll('section[data-anchor-id="cs"] table');
+        // 只读取商品参数区域，避免把“替代料”等推荐表格识别为参数。
+        const tables = document.querySelectorAll(
+            '#productParamsTabItem table, section[data-anchor-id="cs"] table'
+        );
         tables.forEach(table => {
-            const rows = table.querySelectorAll('tbody tr');
+            const rows = table.querySelectorAll('tr');
             rows.forEach(tr => {
                 const tds = tr.querySelectorAll('td');
-                if (tds.length >= 3) {
-                    const attr = cleanText(tds[1]?.textContent);
-                    let value = cleanText(tds[2]?.textContent);
+                if (tds.length >= 2) {
+                    // 兼容旧版三列（序号/属性/值）和新版两列（属性/值）。
+                    const offset = tds.length >= 3 ? 1 : 0;
+                    const attr = cleanText(tds[offset]?.textContent);
+                    let value = cleanText(tds[offset + 1]?.textContent);
                     // 过滤无意义值
                     if (!attr || !value || value === '-' || value === '—' || value === '无') return;
                     // 有些值含换行/多余空格，进一步清理
@@ -87,10 +157,15 @@
     }
 
     function addCopyButton() {
-        const mainInfo = document.querySelector('section[data-anchor-id="pd"] > div.w-\\[460px\\]');
-        if (!mainInfo || document.getElementById('copy-all-btn-container')) return false;
+        const mainInfo = document.querySelector('section[data-anchor-id="pd"] > div.w-\\[460px\\]')
+            || document.querySelector('main, article, [class*="product-detail"], [class*="product-info"]')
+            || document.body;
+        if (!mainInfo || document.getElementById('copy-all-btn-container')) {
+            logDiagnostics('页面主体未找到');
+            return false;
+        }
         // 定位主信息区域
-        const titleElem = mainInfo.querySelector('h1');
+        const titleElem = mainInfo.querySelector('h1') || document.querySelector('h1');
         if (!titleElem) return false;
 
         const container = document.createElement('span');
@@ -154,6 +229,7 @@
     function tryAdd() {
         if (addCopyButton()) return;
         if (++attempts < max) setTimeout(tryAdd, 300);
+        else logDiagnostics('达到初始重试上限');
     }
 
     if (document.readyState === 'loading') {
@@ -167,4 +243,3 @@
     });
     obs.observe(document.body, { childList: true, subtree: true });
 })();
-
