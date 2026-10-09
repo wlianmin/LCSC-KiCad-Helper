@@ -1,9 +1,15 @@
 // ==UserScript==
-// @name         立创商城 x KiCad助手 v1
+// @name         立创商城 x KiCad助手
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  一键复制：品牌、型号、编号、描述，可直接粘贴到 KiCad 符号属性中，提升工作效率！
-// @author       laowang
+// @author       wlianmin
+// @homepageURL  https://github.com/wlianmin/LCSC-KiCad-Helper
+// @source       https://raw.githubusercontent.com/wlianmin/LCSC-KiCad-Helper/main/lcsc-kicad-helper.user.js
+// @supportURL   https://github.com/wlianmin/LCSC-KiCad-Helper/issues
+// @downloadURL  https://raw.githubusercontent.com/wlianmin/LCSC-KiCad-Helper/main/lcsc-kicad-helper.user.js
+// @updateURL    https://raw.githubusercontent.com/wlianmin/LCSC-KiCad-Helper/main/lcsc-kicad-helper.user.js
+// @license      MIT
 // @match        https://item.szlcsc.com/*
 // @grant        GM_setClipboard
 // @run-at       document-end
